@@ -12,6 +12,7 @@ import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 import com.greenleaf.paygo.data.db.entity.TransactionEntity
 import com.greenleaf.paygo.parser.DefaultRules
 import com.greenleaf.paygo.util.CustomerId
+import com.greenleaf.paygo.util.InfoJson
 import kotlinx.coroutines.flow.Flow
 
 /** Single access point for all persistence. */
@@ -81,6 +82,24 @@ class PaygoRepository(private val db: PaygoDatabase) {
         )
         db.customerDao().upsert(customer)
         return customer
+    }
+
+    /**
+     * Manually links a message to a customer (used when auto-linking missed it),
+     * merging any info captured from that message into the customer record.
+     */
+    suspend fun assignMessageToCustomer(messageId: Long, custId: String) {
+        val message = db.messageDao().getById(messageId) ?: return
+        val customer = db.customerDao().getById(custId) ?: return
+        db.messageDao().update(message.copy(customerId = custId))
+        val info = InfoJson.decode(message.extractedInfo)
+        val updated = customer.copy(
+            name = customer.name ?: info["name"],
+            location = info["location"] ?: customer.location,
+            productType = info["product_type"] ?: info["system_size"] ?: customer.productType,
+            updatedAt = System.currentTimeMillis()
+        )
+        db.customerDao().update(updated)
     }
 
     // Contact groups ---------------------------------------------------------

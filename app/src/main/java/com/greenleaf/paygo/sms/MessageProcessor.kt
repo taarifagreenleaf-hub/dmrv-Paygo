@@ -16,10 +16,10 @@ import com.greenleaf.paygo.parser.ParseResult
 import com.greenleaf.paygo.parser.PaymentParser
 import com.greenleaf.paygo.util.CustomerId
 import com.greenleaf.paygo.util.GroupKey
+import com.greenleaf.paygo.util.InfoJson
 import com.greenleaf.paygo.util.TemplateEngine
 import com.greenleaf.paygo.whatsapp.WhatsAppSender
 import kotlinx.coroutines.flow.first
-import org.json.JSONObject
 
 /**
  * The heart of the app. Takes a raw incoming SMS and:
@@ -52,7 +52,7 @@ class MessageProcessor(
         // For free-form (non-payment) messages, pull out key customer info.
         val infoMap = if (parse?.isPayment == true) emptyMap() else
             infoExtractor.extract(body, repo.enabledInfoRules())
-        val extractedInfo = if (infoMap.isEmpty()) null else JSONObject(infoMap as Map<*, *>).toString()
+        val extractedInfo = InfoJson.encode(infoMap)
 
         // Resolve the customer this message belongs to.
         val customer = resolveCustomer(parse, address, body, infoMap, settings, timestamp)

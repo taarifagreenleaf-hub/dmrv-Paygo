@@ -26,7 +26,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greenleaf.paygo.data.db.entity.ContactGroupEntity
+import com.greenleaf.paygo.data.db.entity.CustomerEntity
 import com.greenleaf.paygo.ui.vm.GroupsViewModel
+import com.greenleaf.paygo.util.InfoJson
 
 @Composable
 fun GroupsScreen(vm: GroupsViewModel = viewModel()) {
@@ -63,19 +65,12 @@ fun GroupsScreen(vm: GroupsViewModel = viewModel()) {
     }
 }
 
-private fun parseInfo(json: String?): Map<String, String> {
-    if (json.isNullOrBlank()) return emptyMap()
-    return try {
-        val obj = org.json.JSONObject(json)
-        obj.keys().asSequence().associateWith { obj.optString(it) }
-    } catch (e: Exception) {
-        emptyMap()
-    }
-}
-
 @Composable
 private fun GroupDetailDialog(vm: GroupsViewModel, group: ContactGroupEntity, onDismiss: () -> Unit) {
     val messages by vm.messagesFor(group.groupKey).collectAsState(initial = emptyList())
+    val customers by vm.customers.collectAsStateWithLifecycle()
+    var assigningMessageId by remember { mutableStateOf<Long?>(null) }
+
     Dialog(onDismissRequest = onDismiss) {
         Card {
             Column(Modifier.padding(16.dp)) {
@@ -86,7 +81,7 @@ private fun GroupDetailDialog(vm: GroupsViewModel, group: ContactGroupEntity, on
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(Format.date(m.timestamp), style = MaterialTheme.typography.labelSmall)
                             Text(m.body, style = MaterialTheme.typography.bodyMedium)
-                            val captured = parseInfo(m.extractedInfo)
+                            val captured = InfoJson.decode(m.extractedInfo)
                             if (captured.isNotEmpty()) {
                                 Text(
                                     "Captured: " + captured.entries.joinToString(", ") { "${it.key}=${it.value}" },
@@ -94,11 +89,56 @@ private fun GroupDetailDialog(vm: GroupsViewModel, group: ContactGroupEntity, on
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
+                            if (m.customerId != null) {
+                                Text("Linked: ${m.customerId}", style = MaterialTheme.typography.labelMedium)
+                            } else {
+                                TextButton(onClick = { assigningMessageId = m.id }) {
+                                    Text("Assign to customer")
+                                }
+                            }
                             Divider(Modifier.padding(top = 6.dp))
                         }
                     }
                 }
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Close") }
+            }
+        }
+    }
+
+    assigningMessageId?.let { msgId ->
+        CustomerPickerDialog(
+            customers = customers,
+            onPick = { custId -> vm.assign(msgId, custId); assigningMessageId = null },
+            onDismiss = { assigningMessageId = null }
+        )
+    }
+}
+
+@Composable
+private fun CustomerPickerDialog(
+    customers: List<CustomerEntity>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card {
+            Column(Modifier.padding(16.dp)) {
+                Text("Pick a customer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Divider(Modifier.padding(vertical = 8.dp))
+                if (customers.isEmpty()) {
+                    Text("No customers yet — one is created on the first payment.")
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(customers, key = { it.custId }) { c ->
+                            Column(Modifier.fillMaxWidth().clickable { onPick(c.custId) }.padding(vertical = 8.dp)) {
+                                Text("${c.custId} — ${c.name ?: "(no name)"}", style = MaterialTheme.typography.bodyLarge)
+                                c.phoneNumber?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                Divider(Modifier.padding(top = 6.dp))
+                            }
+                        }
+                    }
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
             }
         }
     }

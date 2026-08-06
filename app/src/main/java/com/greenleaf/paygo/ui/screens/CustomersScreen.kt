@@ -1,13 +1,17 @@
 package com.greenleaf.paygo.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
@@ -84,20 +88,59 @@ private fun CustomersTab(vm: CustomersViewModel = viewModel()) {
 @Composable
 private fun CustomerDetailDialog(vm: CustomersViewModel, c: CustomerEntity, onDismiss: () -> Unit) {
     val messages by vm.messagesFor(c.custId).collectAsState(initial = emptyList())
+    var editing by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf(c.name ?: "") }
+    var location by remember { mutableStateOf(c.location ?: "") }
+    var product by remember { mutableStateOf(c.productType ?: "") }
+    var phone by remember { mutableStateOf(c.phoneNumber ?: "") }
+
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Card {
-            Column(Modifier.padding(16.dp)) {
+            Column(
+                Modifier.padding(16.dp)
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(c.custId, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                c.name?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
                 Divider(Modifier.padding(vertical = 8.dp))
-                KeyValueRow("Phone", c.phoneNumber ?: "-")
-                KeyValueRow("Location", c.location ?: "-")
-                KeyValueRow("Product", c.productType ?: "-")
+
+                if (editing) {
+                    LabeledField("Name", name) { name = it }
+                    LabeledField("Phone", phone) { phone = it }
+                    LabeledField("Location", location) { location = it }
+                    LabeledField("Product type", product) { product = it }
+                } else {
+                    KeyValueRow("Name", c.name ?: "-")
+                    KeyValueRow("Phone", c.phoneNumber ?: "-")
+                    KeyValueRow("Location", c.location ?: "-")
+                    KeyValueRow("Product", c.productType ?: "-")
+                }
                 KeyValueRow("Total paid (TZS)", Format.money(c.totalPaid))
                 KeyValueRow("Last amount", c.lastAmount?.let { Format.money(it) } ?: "-")
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (editing) {
+                        TextButton(onClick = { editing = false }) { Text("Cancel") }
+                        TextButton(onClick = {
+                            vm.save(
+                                c.copy(
+                                    name = name.ifBlank { null },
+                                    phoneNumber = phone.ifBlank { null },
+                                    location = location.ifBlank { null },
+                                    productType = product.ifBlank { null },
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                            editing = false
+                        }) { Text("Save") }
+                    } else {
+                        TextButton(onClick = { editing = true }) { Text("Edit details") }
+                    }
+                }
+
                 Divider(Modifier.padding(vertical = 8.dp))
                 Text("Messages", style = MaterialTheme.typography.titleSmall)
-                LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                LazyColumn(Modifier.heightIn(max = 240.dp)) {
                     items(messages, key = { it.id }) { m ->
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(Format.date(m.timestamp), style = MaterialTheme.typography.labelSmall)

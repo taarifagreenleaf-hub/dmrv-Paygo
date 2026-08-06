@@ -140,6 +140,11 @@ payer a short id and ask them to quote it:
    location and amount paid**, with per-customer message history. Export it as
    `customers.csv`.
 
+For the cases automation can't catch (a customer who texts from a different
+number without quoting the id), the **Conversations** tab shows an **Assign to
+customer** button on any unlinked message, and each customer's detail has an
+**Edit details** action to correct name / location / product by hand.
+
 Configure it under **Settings ▸ Customer tracking** (toggle + id prefix). The
 default payment reply already contains `{custid}`; edit it under
 **Training ▸ Reply**.
