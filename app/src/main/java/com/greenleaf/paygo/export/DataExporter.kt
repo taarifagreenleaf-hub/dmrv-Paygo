@@ -53,7 +53,7 @@ class DataExporter(private val context: Context, private val repo: PaygoReposito
     suspend fun exportMessagesCsv(): File {
         val rows = repo.allMessages()
         val sb = StringBuilder()
-        sb.appendLine("id,timestamp,address,category,provider,groupKey,body")
+        sb.appendLine("id,timestamp,address,category,provider,groupKey,extractedInfo,body")
         val df = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
         for (m in rows) {
             sb.appendLine(
@@ -64,6 +64,7 @@ class DataExporter(private val context: Context, private val repo: PaygoReposito
                     m.category,
                     csv(m.provider),
                     csv(m.groupKey),
+                    csv(m.extractedInfo),
                     csv(m.body)
                 ).joinToString(",")
             )
@@ -95,6 +96,7 @@ class DataExporter(private val context: Context, private val repo: PaygoReposito
     private fun MessageEntity.toJson() = JSONObject().apply {
         put("id", id); put("address", address); put("body", body); put("timestamp", timestamp)
         put("category", category); put("provider", provider); put("groupKey", groupKey)
+        put("extractedInfo", extractedInfo)
     }
 
     private fun TransactionEntity.toJson() = JSONObject().apply {

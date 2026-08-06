@@ -3,6 +3,7 @@ package com.greenleaf.paygo.data.repo
 import com.greenleaf.paygo.data.db.PaygoDatabase
 import com.greenleaf.paygo.data.db.entity.ContactGroupEntity
 import com.greenleaf.paygo.data.db.entity.EventLogEntity
+import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.MessageCategory
 import com.greenleaf.paygo.data.db.entity.MessageEntity
 import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
@@ -44,6 +45,11 @@ class PaygoRepository(private val db: PaygoDatabase) {
     suspend fun upsertResponseRule(rule: ResponseRuleEntity) = db.responseRuleDao().upsert(rule)
     suspend fun deleteResponseRule(rule: ResponseRuleEntity) = db.responseRuleDao().delete(rule)
 
+    fun observeInfoRules(): Flow<List<InfoRuleEntity>> = db.infoRuleDao().observeAll()
+    suspend fun enabledInfoRules() = db.infoRuleDao().getEnabled()
+    suspend fun upsertInfoRule(rule: InfoRuleEntity) = db.infoRuleDao().upsert(rule)
+    suspend fun deleteInfoRule(rule: InfoRuleEntity) = db.infoRuleDao().delete(rule)
+
     // Contact groups ---------------------------------------------------------
     fun observeGroups(): Flow<List<ContactGroupEntity>> = db.contactGroupDao().observeAll()
     suspend fun getGroup(key: String) = db.contactGroupDao().getByKey(key)
@@ -61,6 +67,9 @@ class PaygoRepository(private val db: PaygoDatabase) {
         }
         if (db.responseRuleDao().count() == 0) {
             DefaultRules.responseRules().forEach { db.responseRuleDao().upsert(it) }
+        }
+        if (db.infoRuleDao().count() == 0) {
+            DefaultRules.infoRules().forEach { db.infoRuleDao().upsert(it) }
         }
     }
 }

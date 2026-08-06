@@ -6,9 +6,11 @@ via SMS and WhatsApp**, groups ordinary messages by sender/payee, **forwards**
 everything to another number and WhatsApp, and stores it all in an on-device
 database you can **export and download**.
 
-Built for the Tanzanian payment ecosystem out of the box: **M-Pesa, Mixx by Yas
-(Tigo Pesa), HaloPesa, T-Pesa, Airtel Money, Selcom, CRDB and NMB** — and fully
-**trainable** so you can add or fix any provider yourself.
+Built for the Tanzanian payment ecosystem out of the box: **Selcom "Lipa Kwa
+Simu" vending**, **M-Pesa, Mixx by Yas (Tigo Pesa), HaloPesa, T-Pesa, Airtel
+Money, CRDB and NMB** — and fully **trainable** so you can add or fix any
+provider yourself. It also reads the free-form messages customers send and
+**captures key info** (name, location, amount, system size, phone).
 
 ---
 
@@ -21,6 +23,7 @@ Built for the Tanzanian payment ecosystem out of the box: **M-Pesa, Mixx by Yas
 | Support M-Pesa, Yas/Mixx, HaloPesa, T-Pesa, Selcom, CRDB, NMB … | `DefaultRules` seed set; add more from the UI |
 | Train what to read and what to reply | **Training** screen: read rules, reply rules, and a live parser test |
 | Reply by SMS and WhatsApp | `SmsSender` + `WhatsAppSender` (3 delivery modes) |
+| Capture key info from free-form customer messages | `InfoExtractor` + trainable **capture rules** (name, location, amount, system size, phone) |
 | Group normal messages by sender/payee | `ContactGroupEntity`, keyed by counterparty number/name |
 | Forward notifications to another number + WhatsApp | `MessageProcessor.forward()` using the settings targets |
 | Database for all information | Room (`PaygoDatabase`): messages, transactions, groups, rules, event log |
@@ -33,14 +36,20 @@ Built for the Tanzanian payment ecosystem out of the box: **M-Pesa, Mixx by Yas
 - **Payments** – the parsed transaction ledger.
 - **Contacts** – conversations grouped by payee/sender with running totals; tap
   to see the full message history.
-- **Training** – three tabs:
-  - *Read rules*: per-provider regexes (sender, body, amount, name, number,
-    reference, balance).
-  - *Reply rules*: templates with placeholders (`{name} {amount} {currency}
+- **Training** – four tabs:
+  - *Read*: per-provider payment regexes (sender, body, amount, provider, name,
+    number, reference, balance). The provider can be captured from the body, so
+    one Lipa Kwa Simu rule reports `airtelmoney` when the funding wallet is named
+    and falls back to `selcom` for direct number payments.
+  - *Reply*: templates with placeholders (`{name} {amount} {currency}
     {provider} {reference} {number} {balance} {date}`), filtered by trigger
     (payment / normal / keyword), amount range or provider, sent over SMS and/or
     WhatsApp.
-  - *Test*: paste a sample SMS and see exactly what the current rules extract.
+  - *Capture*: extractors that pull key fields out of free-form customer
+    messages — each rule fills one field (`name`, `location`, `amount`,
+    `system_size`, `phone`) via a regex.
+  - *Test*: paste any sample message; see both the payment parse **and** the
+    captured info.
 - **Settings** – forwarding targets, WhatsApp delivery mode, and export buttons.
 
 ## Architecture
@@ -111,6 +120,15 @@ Real SMS wording changes over time. If a message isn't parsed:
 3. Add a brand-new provider with the **+ Read rule** button.
 
 Amounts are normalised for `Tsh`/`TZS`, thousands separators and decimals.
+
+## Capturing info from customers' own messages
+
+Besides the operator's payment SMS, customers often text their own details
+("Nimelipa 80,000, jina Asha Mjape, nipo Mbeya, system 200W, 0712254863").
+The **Capture** rules extract whatever fields are present — missing fields are
+simply skipped. Captured info is shown under each message in **Contacts** and
+included in the messages CSV / JSON export. Tune or add fields from
+**Training ▸ Capture**, and verify with **Training ▸ Test**.
 
 ## Notes & limitations
 

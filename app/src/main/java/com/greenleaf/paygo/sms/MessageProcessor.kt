@@ -10,12 +10,14 @@ import com.greenleaf.paygo.data.db.entity.TransactionEntity
 import com.greenleaf.paygo.data.prefs.PaygoSettings
 import com.greenleaf.paygo.data.prefs.SettingsStore
 import com.greenleaf.paygo.data.repo.PaygoRepository
+import com.greenleaf.paygo.parser.InfoExtractor
 import com.greenleaf.paygo.parser.ParseResult
 import com.greenleaf.paygo.parser.PaymentParser
 import com.greenleaf.paygo.util.GroupKey
 import com.greenleaf.paygo.util.TemplateEngine
 import com.greenleaf.paygo.whatsapp.WhatsAppSender
 import kotlinx.coroutines.flow.first
+import org.json.JSONObject
 
 /**
  * The heart of the app. Takes a raw incoming SMS and:
@@ -28,6 +30,7 @@ class MessageProcessor(
     private val repo: PaygoRepository,
     private val settingsStore: SettingsStore,
     private val parser: PaymentParser,
+    private val infoExtractor: InfoExtractor,
     private val smsSender: SmsSender,
     private val whatsAppSender: WhatsAppSender
 ) {
@@ -44,6 +47,12 @@ class MessageProcessor(
             GroupKey.forSender(address)
         }
 
+        // For free-form (non-payment) messages, pull out key customer info.
+        val extractedInfo = if (parse?.isPayment == true) null else {
+            val info = infoExtractor.extract(body, repo.enabledInfoRules())
+            if (info.isEmpty()) null else JSONObject(info as Map<*, *>).toString()
+        }
+
         val message = MessageEntity(
             address = address,
             body = body,
@@ -51,7 +60,8 @@ class MessageProcessor(
             simSubscriptionId = simId,
             category = category.name,
             provider = parse?.provider,
-            groupKey = groupKey
+            groupKey = groupKey,
+            extractedInfo = extractedInfo
         )
         val messageId = repo.insertMessage(message)
         val stored = message.copy(id = messageId)

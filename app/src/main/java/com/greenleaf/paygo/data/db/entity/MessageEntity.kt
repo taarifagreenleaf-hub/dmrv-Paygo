@@ -37,6 +37,10 @@ data class MessageEntity(
     /** Normalised grouping key (payee/sender) used to bucket conversations. */
     val groupKey: String,
 
+    /** Key info captured from a free-form message, stored as a JSON object
+     *  (e.g. {"name":"Asha","location":"Mbeya","amount":"50000","system_size":"200W"}). */
+    val extractedInfo: String? = null,
+
     /** True once a response rule has processed this message. */
     val handled: Boolean = false,
     val repliedSms: Boolean = false,

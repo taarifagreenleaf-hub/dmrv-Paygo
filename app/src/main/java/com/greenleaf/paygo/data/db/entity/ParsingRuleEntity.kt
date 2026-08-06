@@ -34,6 +34,10 @@ data class ParsingRuleEntity(
 
     val amountRegex: String? = null,
     val amountGroup: Int = 1,
+    /** Optional: capture the funding provider/wallet from the body (e.g. the
+     *  "Airtel Money" in a Lipa Kwa Simu message). Falls back to [provider]. */
+    val providerRegex: String? = null,
+    val providerGroup: Int = 1,
     val nameRegex: String? = null,
     val nameGroup: Int = 1,
     val numberRegex: String? = null,

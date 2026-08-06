@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 import kotlinx.coroutines.flow.Flow
@@ -49,5 +50,26 @@ interface ResponseRuleDao {
     suspend fun getEnabled(): List<ResponseRuleEntity>
 
     @Query("SELECT COUNT(*) FROM response_rules")
+    suspend fun count(): Int
+}
+
+@Dao
+interface InfoRuleDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(rule: InfoRuleEntity): Long
+
+    @Update
+    suspend fun update(rule: InfoRuleEntity)
+
+    @Delete
+    suspend fun delete(rule: InfoRuleEntity)
+
+    @Query("SELECT * FROM info_rules ORDER BY priority DESC, id ASC")
+    fun observeAll(): Flow<List<InfoRuleEntity>>
+
+    @Query("SELECT * FROM info_rules WHERE enabled = 1 ORDER BY priority DESC, id ASC")
+    suspend fun getEnabled(): List<InfoRuleEntity>
+
+    @Query("SELECT COUNT(*) FROM info_rules")
     suspend fun count(): Int
 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseTrigger
@@ -40,10 +41,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun TrainingScreen(vm: TrainingViewModel = viewModel()) {
     var tab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Read rules", "Reply rules", "Test")
+    val tabs = listOf("Read", "Reply", "Capture", "Test")
 
     var editingParse by remember { mutableStateOf<ParsingRuleEntity?>(null) }
     var editingResponse by remember { mutableStateOf<ResponseRuleEntity?>(null) }
+    var editingInfo by remember { mutableStateOf<InfoRuleEntity?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -58,6 +60,11 @@ fun TrainingScreen(vm: TrainingViewModel = viewModel()) {
                     icon = { Icon(Icons.Filled.Add, null) },
                     onClick = { editingResponse = blankResponseRule() }
                 )
+                2 -> ExtendedFloatingActionButton(
+                    text = { Text("Capture rule") },
+                    icon = { Icon(Icons.Filled.Add, null) },
+                    onClick = { editingInfo = blankInfoRule() }
+                )
             }
         }
     ) { padding ->
@@ -70,7 +77,8 @@ fun TrainingScreen(vm: TrainingViewModel = viewModel()) {
             when (tab) {
                 0 -> ParsingRulesTab(vm, onEdit = { editingParse = it })
                 1 -> ResponseRulesTab(vm, onEdit = { editingResponse = it })
-                2 -> TestTab(vm)
+                2 -> InfoRulesTab(vm, onEdit = { editingInfo = it })
+                3 -> TestTab(vm)
             }
         }
     }
@@ -90,6 +98,41 @@ fun TrainingScreen(vm: TrainingViewModel = viewModel()) {
             onSave = { vm.saveResponseRule(it); editingResponse = null },
             onDelete = { vm.deleteResponseRule(it); editingResponse = null }
         )
+    }
+    editingInfo?.let { rule ->
+        InfoRuleDialog(
+            rule = rule,
+            onDismiss = { editingInfo = null },
+            onSave = { vm.saveInfoRule(it); editingInfo = null },
+            onDelete = { vm.deleteInfoRule(it); editingInfo = null }
+        )
+    }
+}
+
+@Composable
+private fun InfoRulesTab(vm: TrainingViewModel, onEdit: (InfoRuleEntity) -> Unit) {
+    val rules by vm.infoRules.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+        Text(
+            "Capture rules pull key info (name, location, amount, system size, " +
+                "phone) out of the free-form messages customers send. Tap to edit.",
+            style = MaterialTheme.typography.bodySmall
+        )
+        rules.forEach { rule ->
+            Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(rule.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "field=${rule.fieldKey} • ${if (rule.enabled) "enabled" else "disabled"}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(rule.regex, style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { onEdit(rule) }, modifier = Modifier.padding(top = 8.dp)) {
+                        Text("Edit")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -155,16 +198,25 @@ private fun TestTab(vm: TrainingViewModel) {
         mutableStateOf("ABC1234567 Confirmed. You have received Tsh 50,000.00 from JOHN DOE 255712345678 on 6/8/26. New M-PESA balance is Tsh 120,000.00")
     }
     var result by remember { mutableStateOf<ParseResult?>(null) }
+    var info by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var tested by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Paste a sample SMS to check how the app reads it.", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            "Paste a sample message to check how the app reads it — both payment " +
+                "parsing and free-form info capture run.",
+            style = MaterialTheme.typography.bodyMedium
+        )
         LabeledField("Sender", sender) { sender = it }
         LabeledField("Message body", body, singleLine = false) { body = it }
         Button(
             onClick = {
-                scope.launch { result = vm.testParse(sender, body); tested = true }
+                scope.launch {
+                    result = vm.testParse(sender, body)
+                    info = vm.testInfo(body)
+                    tested = true
+                }
             },
             modifier = Modifier.padding(top = 12.dp)
         ) { Text("Run test") }
@@ -174,19 +226,30 @@ private fun TestTab(vm: TrainingViewModel) {
                 Column(Modifier.padding(16.dp)) {
                     val r = result
                     if (r == null || !r.isPayment) {
-                        Text("No payment matched.", style = MaterialTheme.typography.titleMedium)
+                        Text("Payment: no match", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Adjust a read rule's sender/body/amount regex so it matches this message.",
+                            "If this should be a payment, adjust a read rule's " +
+                                "sender/body/amount regex.",
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
-                        Text("Matched: ${r.matchedRuleName}", style = MaterialTheme.typography.titleMedium)
+                        Text("Payment matched: ${r.matchedRuleName}", style = MaterialTheme.typography.titleMedium)
                         KeyValueRow("Provider", r.provider)
                         KeyValueRow("Amount", r.amount?.let { Format.money(it) } ?: "-")
                         KeyValueRow("Name", r.counterpartyName ?: "-")
                         KeyValueRow("Number", r.counterpartyNumber ?: "-")
                         KeyValueRow("Reference", r.reference ?: "-")
                         KeyValueRow("Balance", r.balanceAfter?.let { Format.money(it) } ?: "-")
+                    }
+                }
+            }
+            Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Captured info", style = MaterialTheme.typography.titleMedium)
+                    if (info.isEmpty()) {
+                        Text("No key info captured from this message.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        info.forEach { (k, v) -> KeyValueRow(k, v) }
                     }
                 }
             }
@@ -208,4 +271,10 @@ private fun blankResponseRule() = ResponseRuleEntity(
     name = "New reply",
     triggerType = ResponseTrigger.PAYMENT.name,
     template = "Asante {name}, tumepokea {currency} {amount}."
+)
+
+private fun blankInfoRule() = InfoRuleEntity(
+    name = "New capture",
+    fieldKey = "name",
+    regex = "(?i)(?:jina|name)\\s*[:\\-]?\\s*([A-Za-z][A-Za-z' ]{2,40})"
 )

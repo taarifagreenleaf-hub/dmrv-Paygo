@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 
@@ -104,6 +105,52 @@ fun ParsingRuleDialog(
                                 numberRegex = number.ifBlank { null },
                                 referenceRegex = reference.ifBlank { null },
                                 balanceRegex = balance.ifBlank { null }
+                            )
+                        )
+                    }) { Text("Save") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoRuleDialog(
+    rule: InfoRuleEntity,
+    onDismiss: () -> Unit,
+    onSave: (InfoRuleEntity) -> Unit,
+    onDelete: (InfoRuleEntity) -> Unit
+) {
+    var name by remember { mutableStateOf(rule.name) }
+    var fieldKey by remember { mutableStateOf(rule.fieldKey) }
+    var enabled by remember { mutableStateOf(rule.enabled) }
+    var regex by remember { mutableStateOf(rule.regex) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card {
+            Column(Modifier.padding(16.dp).heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+                Text("Capture rule", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                LabeledField("Name", name) { name = it }
+                LabeledField("Field key (name, location, amount, system_size, phone)", fieldKey) { fieldKey = it }
+                ToggleLine("Enabled", enabled) { enabled = it }
+                LabeledField("Regex (value in capture group 1)", regex, singleLine = false) { regex = it }
+                Text(
+                    "Example: (?i)(?:jina|name)\\s*[:\\-]?\\s*([A-Za-z' ]{2,40})",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
+                    if (rule.id != 0L) {
+                        TextButton(onClick = { onDelete(rule) }) { Text("Delete") }
+                    }
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    TextButton(onClick = {
+                        onSave(
+                            rule.copy(
+                                name = name,
+                                fieldKey = fieldKey.trim().lowercase().replace(" ", "_"),
+                                enabled = enabled,
+                                regex = regex
                             )
                         )
                     }) { Text("Save") }

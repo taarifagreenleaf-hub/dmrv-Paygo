@@ -63,6 +63,16 @@ fun GroupsScreen(vm: GroupsViewModel = viewModel()) {
     }
 }
 
+private fun parseInfo(json: String?): Map<String, String> {
+    if (json.isNullOrBlank()) return emptyMap()
+    return try {
+        val obj = org.json.JSONObject(json)
+        obj.keys().asSequence().associateWith { obj.optString(it) }
+    } catch (e: Exception) {
+        emptyMap()
+    }
+}
+
 @Composable
 private fun GroupDetailDialog(vm: GroupsViewModel, group: ContactGroupEntity, onDismiss: () -> Unit) {
     val messages by vm.messagesFor(group.groupKey).collectAsState(initial = emptyList())
@@ -76,6 +86,14 @@ private fun GroupDetailDialog(vm: GroupsViewModel, group: ContactGroupEntity, on
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(Format.date(m.timestamp), style = MaterialTheme.typography.labelSmall)
                             Text(m.body, style = MaterialTheme.typography.bodyMedium)
+                            val captured = parseInfo(m.extractedInfo)
+                            if (captured.isNotEmpty()) {
+                                Text(
+                                    "Captured: " + captured.entries.joinToString(", ") { "${it.key}=${it.value}" },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             Divider(Modifier.padding(top = 6.dp))
                         }
                     }

@@ -26,9 +26,13 @@ class PaymentParser {
             val number = normalizeNumber(extract(body, rule.numberRegex, rule.numberGroup))
             val reference = extract(body, rule.referenceRegex, rule.referenceGroup)?.trim()
             val balance = AmountParser.parse(extract(body, rule.balanceRegex, rule.balanceGroup))
+            // Prefer a provider captured from the body (e.g. the funding wallet in
+            // a Lipa Kwa Simu message); otherwise use the rule's fixed provider slug.
+            val provider = normalizeProvider(extract(body, rule.providerRegex, rule.providerGroup))
+                ?: rule.provider
 
             return ParseResult(
-                provider = rule.provider,
+                provider = provider,
                 direction = rule.direction,
                 amount = amount,
                 counterpartyName = name?.ifBlank { null },
@@ -50,6 +54,15 @@ class PaymentParser {
         // match when the requested capture group is absent or empty.
         val captured = match.groupValues.getOrNull(group)?.takeIf { it.isNotBlank() }
         return captured ?: match.groupValues.firstOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    /** Turns a captured wallet name into a compact slug, e.g. "Airtel Money" -> "airtelmoney". */
+    private fun normalizeProvider(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val slug = raw.trim().lowercase()
+            .replace("-", "")
+            .replace(Regex("[^a-z0-9]"), "")
+        return slug.ifBlank { null }
     }
 
     private fun normalizeNumber(raw: String?): String? {

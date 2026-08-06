@@ -4,6 +4,7 @@ import android.content.Context
 import com.greenleaf.paygo.data.db.PaygoDatabase
 import com.greenleaf.paygo.data.prefs.SettingsStore
 import com.greenleaf.paygo.data.repo.PaygoRepository
+import com.greenleaf.paygo.parser.InfoExtractor
 import com.greenleaf.paygo.parser.PaymentParser
 import com.greenleaf.paygo.sms.MessageProcessor
 import com.greenleaf.paygo.sms.SmsSender
@@ -35,10 +36,11 @@ object ServiceLocator {
     val repository: PaygoRepository by lazy { PaygoRepository(database) }
     val settingsStore: SettingsStore by lazy { SettingsStore(ctx()) }
     val parser: PaymentParser by lazy { PaymentParser() }
+    val infoExtractor: InfoExtractor by lazy { InfoExtractor() }
     val smsSender: SmsSender by lazy { SmsSender(ctx()) }
     val whatsAppSender: WhatsAppSender by lazy { WhatsAppSender(ctx()) }
 
     val messageProcessor: MessageProcessor by lazy {
-        MessageProcessor(repository, settingsStore, parser, smsSender, whatsAppSender)
+        MessageProcessor(repository, settingsStore, parser, infoExtractor, smsSender, whatsAppSender)
     }
 }

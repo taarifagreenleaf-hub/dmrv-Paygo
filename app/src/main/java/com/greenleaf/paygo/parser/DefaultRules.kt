@@ -1,5 +1,6 @@
 package com.greenleaf.paygo.parser
 
+import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseTrigger
@@ -19,6 +20,29 @@ object DefaultRules {
     private const val BALANCE = """(?:balance|Salio)[^\d]{0,20}(?:Tsh|TZS|TSH)\.?\s*([\d.,]+)"""
 
     fun parsingRules(): List<ParsingRuleEntity> = listOf(
+        // --- Selcom "Lipa Kwa Simu" (vending) — highest priority ---
+        // Handles both observed formats:
+        //   "Umepokea malipo TSh 100,000 kutoka kwa Airtel Money; 255... - NAME
+        //    Kumbukumbu No.: 267... Salio lako jipya ni TSh 3,348,479."
+        //   "Umepokea Malipo ya TSh 80,000 kwenye Lipa namba 459806551 kutoka kwa
+        //    255... - NAME. Kumbukumbu No.: 267... Salio lako jipya ni TSh ..."
+        ParsingRuleEntity(
+            name = "Lipa Kwa Simu (Selcom)",
+            provider = "selcom",
+            isBuiltIn = true,
+            priority = 120,
+            senderPattern = ".*",
+            bodyPattern = "(?i)Lipa Kwa Simu",
+            direction = TxnDirection.RECEIVED.name,
+            amountRegex = "(?i)Umepokea\\s+Malipo(?:\\s+ya)?\\s+TSh\\s*([\\d.,]+)",
+            // Funding wallet when named (e.g. "Airtel Money"); blank for direct
+            // phone-number payments, in which case provider falls back to "selcom".
+            providerRegex = "(?i)kutoka kwa\\s+([A-Za-z][A-Za-z .\\-]+?)\\s*;",
+            nameRegex = "-\\s+([A-Za-z][A-Za-z'. ]+?)\\s*\\.?\\s*Kumbukumbu",
+            numberRegex = "(255\\d{9})",
+            referenceRegex = "(?i)Kumbukumbu No\\.?:?\\s*([0-9]{10,16})",
+            balanceRegex = "(?i)Salio lako jipya ni TSh\\s*([\\d.,]+)"
+        ),
         // --- M-Pesa (Vodacom) ---
         ParsingRuleEntity(
             name = "M-Pesa received",
@@ -135,6 +159,49 @@ object DefaultRules {
             numberRegex = PHONE,
             referenceRegex = "(?i)(?:Ref|Reference|Kumbukumbu)[:\\s]+([A-Z0-9]{6,20})",
             balanceRegex = BALANCE
+        )
+    )
+
+    /**
+     * Starter extractors for free-form customer messages. Customers write in a
+     * mix of Swahili and English and often only include some fields, so these are
+     * keyword-anchored and meant to be tuned from the Capture screen.
+     */
+    fun infoRules(): List<InfoRuleEntity> = listOf(
+        InfoRuleEntity(
+            name = "Name",
+            fieldKey = "name",
+            isBuiltIn = true,
+            priority = 100,
+            regex = "(?i)(?:jina(?:\\s+langu)?|name)\\s*[:\\-]?\\s*([A-Za-z][A-Za-z' ]{2,40})"
+        ),
+        InfoRuleEntity(
+            name = "Location",
+            fieldKey = "location",
+            isBuiltIn = true,
+            priority = 90,
+            regex = "(?i)(?:mahali|eneo|location|kata|kijiji|mtaa|nipo|niko|from)\\s*[:\\-]?\\s*([A-Za-z][A-Za-z' ]{2,40})"
+        ),
+        InfoRuleEntity(
+            name = "Amount",
+            fieldKey = "amount",
+            isBuiltIn = true,
+            priority = 80,
+            regex = "(?i)(?:nimelipa|nalipa|kiasi|amount|tsh|tzs)\\s*[:\\-]?\\s*([\\d.,]{3,})"
+        ),
+        InfoRuleEntity(
+            name = "System size",
+            fieldKey = "system_size",
+            isBuiltIn = true,
+            priority = 70,
+            regex = "(?i)(\\d{1,4}\\s?(?:wp|watts|watt|w|kw)\\b|SHS\\s?\\d+|system\\s?\\w+)"
+        ),
+        InfoRuleEntity(
+            name = "Phone",
+            fieldKey = "phone",
+            isBuiltIn = true,
+            priority = 60,
+            regex = "(\\+?255\\d{9}|0\\d{9})"
         )
     )
 

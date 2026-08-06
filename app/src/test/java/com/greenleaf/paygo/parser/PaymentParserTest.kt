@@ -45,4 +45,55 @@ class PaymentParserTest {
         val result = parser.parse("Mom", "Uko wapi? Nakuja jioni.", rules)
         assertNull(result)
     }
+
+    @Test fun `parses Lipa Kwa Simu with named wallet`() {
+        val body = "Umepokea malipo TSh 100,000 kutoka kwa Airtel Money; 255694553433 - " +
+            "MGENI HUSENI Kumbukumbu No.: 26793038832637. 06/08/26 18:24. " +
+            "Salio lako jipya ni TSh 3,348,479. Asante kwa kutumia Lipa Kwa Simu.LKS"
+        val r = parser.parse("Selcom", body, rules)
+        assertNotNull(r)
+        assertEquals("airtelmoney", r!!.provider)
+        assertEquals(100000.0, r.amount!!, 0.001)
+        assertEquals("MGENI HUSENI", r.counterpartyName)
+        assertEquals("+255694553433", r.counterpartyNumber)
+        assertEquals("26793038832637", r.reference)
+        assertEquals(3348479.0, r.balanceAfter!!, 0.001)
+    }
+
+    @Test fun `parses Lipa Kwa Simu with vending alert prefix`() {
+        val body = "Vending Alert SMS Selcom: Umepokea malipo TSh 100,000 kutoka kwa " +
+            "Airtel Money; 255694553433 - MGENI HUSENI Kumbukumbu No.: 26187406394329. " +
+            "06/08/26 17:47. Salio lako jipya ni TSh 3,148,479. Asante kwa kutumia Lipa Kwa Simu.LKS"
+        val r = parser.parse("Selcom", body, rules)
+        assertNotNull(r)
+        assertEquals("airtelmoney", r!!.provider)
+        assertEquals(100000.0, r.amount!!, 0.001)
+        assertEquals("MGENI HUSENI", r.counterpartyName)
+        assertEquals("26187406394329", r.reference)
+    }
+
+    @Test fun `parses Lipa namba direct number payment`() {
+        val body = "Umepokea Malipo ya TSh 80,000 kwenye Lipa namba 459806551 kutoka kwa " +
+            "255775998783 - ASHA MJAPE. Kumbukumbu No.: 26793037307782 06/08/26 16:12. " +
+            "Salio lako jipya ni TSh 2,948,479. Asante kwa kutumia Lipa Kwa Simu.LKS"
+        val r = parser.parse("Selcom", body, rules)
+        assertNotNull(r)
+        assertEquals("selcom", r!!.provider) // no named wallet -> fallback slug
+        assertEquals(80000.0, r.amount!!, 0.001)
+        assertEquals("ASHA MJAPE", r.counterpartyName)
+        assertEquals("+255775998783", r.counterpartyNumber)
+        assertEquals("26793037307782", r.reference)
+        assertEquals(2948479.0, r.balanceAfter!!, 0.001)
+    }
+
+    @Test fun `parses Lipa namba with odd amount`() {
+        val body = "Umepokea Malipo ya TSh 71,427 kwenye Lipa namba 459806551 kutoka kwa " +
+            "255712254863 - ALLY ABDALA. Kumbukumbu No.: 26652888739246 06/08/26 09:57. " +
+            "Salio lako jipya ni TSh 2,568,479. Asante kwa kutumia Lipa Kwa Simu.LKS"
+        val r = parser.parse("Selcom", body, rules)
+        assertNotNull(r)
+        assertEquals(71427.0, r!!.amount!!, 0.001)
+        assertEquals("ALLY ABDALA", r.counterpartyName)
+        assertEquals("+255712254863", r.counterpartyNumber)
+    }
 }
