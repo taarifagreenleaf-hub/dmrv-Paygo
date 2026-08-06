@@ -1,8 +1,14 @@
 name: Build debug APK
 
 # Builds an installable debug APK on GitHub's runners (which have the Android
-# SDK). Download it from the run's "Artifacts", or from the auto-updated
-# "debug-latest" pre-release.
+# SDK). Uses only GitHub-owned actions plus the runner's preinstalled SDK, so it
+# runs even under strict "allow GitHub-owned actions only" policies.
+#
+# HOW TO GET THE APK:
+#   This build runs on any push to the feature branch. After it finishes, the
+#   APK is available two ways:
+#     1. The run's "Artifacts" section (paygo-debug-apk).
+#     2. The auto-updated "debug-latest" pre-release (Releases page).
 on:
   push:
     branches:
@@ -25,11 +31,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Ensure required Android SDK packages
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -40,7 +46,7 @@ jobs:
       - name: Show APK info
         run: |
           ls -la app/build/outputs/apk/debug/
-          echo "APK size:" $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+          echo "APK size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -50,13 +56,13 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to debug-latest pre-release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: debug-latest
-          name: Paygo debug APK (latest)
-          prerelease: true
-          files: app/build/outputs/apk/debug/app-debug.apk
-          body: |
-            Latest debug build of Paygo SMS Assistant from
-            `claude/android-sms-whatsapp-payments-826lje`.
-            Install on a phone with "install unknown apps" enabled for testing.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete debug-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create debug-latest \
+            --title "Paygo debug APK (latest)" \
+            --notes "Debug build of Paygo SMS Assistant from ${{ github.ref_name }}. Enable 'install unknown apps' on the phone to test." \
+            --prerelease \
+            --target "${{ github.sha }}" \
+            app/build/outputs/apk/debug/app-debug.apk
