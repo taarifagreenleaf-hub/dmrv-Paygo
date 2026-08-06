@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Paygo SMS Assistant</string>
+    <string name="accessibility_label">Paygo WhatsApp Auto-Reply</string>
+    <string name="accessibility_description">Lets Paygo tap the WhatsApp send button so replies and forwards can be delivered automatically. No message content is collected outside the app database.</string>
+    <string name="service_channel_name">Message processing</string>
+    <string name="service_notification_title">Paygo is watching incoming SMS</string>
+    <string name="service_notification_text">Parsing payments and forwarding messages.</string>
+</resources>

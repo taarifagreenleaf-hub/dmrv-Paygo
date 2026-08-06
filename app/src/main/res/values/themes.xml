@@ -1,0 +1,4 @@
+<resources>
+    <!-- Base theme; the real colors are supplied by Compose Material3. -->
+    <style name="Theme.Paygo" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
