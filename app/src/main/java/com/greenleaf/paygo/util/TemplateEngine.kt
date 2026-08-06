@@ -21,7 +21,8 @@ object TemplateEngine {
             "number" to (txn?.counterpartyNumber ?: message.address),
             "balance" to (txn?.balanceAfter?.let { formatAmount(it) } ?: ""),
             "date" to dateFmt.format(Date(message.timestamp)),
-            "sender" to message.address
+            "sender" to message.address,
+            "custid" to (message.customerId ?: "")
         )
         var out = template
         for ((key, value) in values) {

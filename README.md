@@ -24,6 +24,7 @@ provider yourself. It also reads the free-form messages customers send and
 | Train what to read and what to reply | **Training** screen: read rules, reply rules, and a live parser test |
 | Reply by SMS and WhatsApp | `SmsSender` + `WhatsAppSender` (3 delivery modes) |
 | Capture key info from free-form customer messages | `InfoExtractor` + trainable **capture rules** (name, location, amount, system size, phone) |
+| Give each customer an **sms-cust-id** and track them | `CustomerEntity` + `CustomerId`; assigned on payment, quoted back by the customer, linked on reply |
 | Group normal messages by sender/payee | `ContactGroupEntity`, keyed by counterparty number/name |
 | Forward notifications to another number + WhatsApp | `MessageProcessor.forward()` using the settings targets |
 | Database for all information | Room (`PaygoDatabase`): messages, transactions, groups, rules, event log |
@@ -34,8 +35,9 @@ provider yourself. It also reads the free-form messages customers send and
 - **Home** – master on/off switch, auto-reply switch, live counters (SMS
   captured, payments, total received) and a feed of every reply/forward.
 - **Payments** – the parsed transaction ledger.
-- **Contacts** – conversations grouped by payee/sender with running totals; tap
-  to see the full message history.
+- **Customers** – two tabs: a *Customers* ledger keyed by sms-cust-id (name,
+  product, location, total paid, phone) and raw *Conversations* grouped by
+  sender with running totals; tap either to see the full message history.
 - **Training** – four tabs:
   - *Read*: per-provider payment regexes (sender, body, amount, provider, name,
     number, reference, balance). The provider can be captured from the body, so
@@ -120,6 +122,27 @@ Real SMS wording changes over time. If a message isn't parsed:
 3. Add a brand-new provider with the **+ Read rule** button.
 
 Amounts are normalised for `Tsh`/`TZS`, thousands separators and decimals.
+
+## Customer IDs (sms-cust-id)
+
+To tie a customer's later texts back to their payment, the app can hand each
+payer a short id and ask them to quote it:
+
+1. **A payment arrives** → the payer (keyed by phone number) is assigned an
+   **sms-cust-id** like `CUST-0001` (idempotent — repeat payments keep the same
+   id). The confirmation reply includes `{custid}` and asks them to reply with
+   it plus their name, location and product type.
+2. **The customer replies** by normal SMS quoting `CUST-0001` (spacing/casing
+   tolerant). The app detects the id, links the message to that customer, and
+   fills in **name, location, product type** from the captured info. Replies
+   from the paying number are linked even without the id.
+3. The **Customers** tab lists everyone by **name, sms-cust-id, product type,
+   location and amount paid**, with per-customer message history. Export it as
+   `customers.csv`.
+
+Configure it under **Settings ▸ Customer tracking** (toggle + id prefix). The
+default payment reply already contains `{custid}`; edit it under
+**Training ▸ Reply**.
 
 ## Capturing info from customers' own messages
 

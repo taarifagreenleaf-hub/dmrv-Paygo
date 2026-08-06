@@ -23,8 +23,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.greenleaf.paygo.ui.nav.Dest
+import com.greenleaf.paygo.ui.screens.ContactsScreen
 import com.greenleaf.paygo.ui.screens.DashboardScreen
-import com.greenleaf.paygo.ui.screens.GroupsScreen
 import com.greenleaf.paygo.ui.screens.SettingsScreen
 import com.greenleaf.paygo.ui.screens.TrainingScreen
 import com.greenleaf.paygo.ui.screens.TransactionsScreen
@@ -94,7 +94,7 @@ private fun PaygoApp() {
         ) {
             composable(Dest.Dashboard.route) { DashboardScreen() }
             composable(Dest.Transactions.route) { TransactionsScreen() }
-            composable(Dest.Groups.route) { GroupsScreen() }
+            composable(Dest.Groups.route) { ContactsScreen() }
             composable(Dest.Training.route) { TrainingScreen() }
             composable(Dest.Settings.route) { SettingsScreen() }
         }

@@ -30,6 +30,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             when (type) {
                 ExportType.TRANSACTIONS_CSV -> exporter.exportTransactionsCsv()
                 ExportType.MESSAGES_CSV -> exporter.exportMessagesCsv()
+                ExportType.CUSTOMERS_CSV -> exporter.exportCustomersCsv()
                 ExportType.BACKUP_JSON -> exporter.exportBackupJson()
             }
         }
@@ -38,4 +39,4 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
 }
 
-enum class ExportType { TRANSACTIONS_CSV, MESSAGES_CSV, BACKUP_JSON }
+enum class ExportType { TRANSACTIONS_CSV, MESSAGES_CSV, CUSTOMERS_CSV, BACKUP_JSON }

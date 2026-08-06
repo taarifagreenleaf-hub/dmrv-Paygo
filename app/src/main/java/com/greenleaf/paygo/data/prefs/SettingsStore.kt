@@ -22,6 +22,11 @@ data class PaygoSettings(
     val forwardWhatsAppNumber: String = "",
     val forwardOnlyPayments: Boolean = true,
 
+    /** Assign each paying customer an sms-cust-id and ask them to quote it. */
+    val trackCustomers: Boolean = true,
+    /** Prefix for generated customer ids, e.g. "CUST" -> CUST-0001. */
+    val customerIdPrefix: String = "CUST",
+
     /** How WhatsApp messages are delivered: INTENT, ACCESSIBILITY or CLOUD_API.
      *  Defaults to ACCESSIBILITY so WhatsApp is hands-free on-device (SMS is
      *  already sent automatically through the mobile operator). */
@@ -45,6 +50,8 @@ class SettingsStore(private val context: Context) {
             forwardSmsNumbers = p[FWD_SMS] ?: "",
             forwardWhatsAppNumber = p[FWD_WA] ?: "",
             forwardOnlyPayments = p[FWD_ONLY_PAY] ?: true,
+            trackCustomers = p[TRACK_CUST] ?: true,
+            customerIdPrefix = p[CUST_PREFIX] ?: "CUST",
             whatsAppMode = p[WA_MODE] ?: WhatsAppMode.ACCESSIBILITY.name,
             cloudApiToken = p[WA_TOKEN] ?: "",
             cloudApiPhoneNumberId = p[WA_PHONE_ID] ?: ""
@@ -60,6 +67,8 @@ class SettingsStore(private val context: Context) {
                 forwardSmsNumbers = p[FWD_SMS] ?: "",
                 forwardWhatsAppNumber = p[FWD_WA] ?: "",
                 forwardOnlyPayments = p[FWD_ONLY_PAY] ?: true,
+                trackCustomers = p[TRACK_CUST] ?: true,
+                customerIdPrefix = p[CUST_PREFIX] ?: "CUST",
                 whatsAppMode = p[WA_MODE] ?: WhatsAppMode.ACCESSIBILITY.name,
                 cloudApiToken = p[WA_TOKEN] ?: "",
                 cloudApiPhoneNumberId = p[WA_PHONE_ID] ?: ""
@@ -71,6 +80,8 @@ class SettingsStore(private val context: Context) {
             p[FWD_SMS] = next.forwardSmsNumbers
             p[FWD_WA] = next.forwardWhatsAppNumber
             p[FWD_ONLY_PAY] = next.forwardOnlyPayments
+            p[TRACK_CUST] = next.trackCustomers
+            p[CUST_PREFIX] = next.customerIdPrefix
             p[WA_MODE] = next.whatsAppMode
             p[WA_TOKEN] = next.cloudApiToken
             p[WA_PHONE_ID] = next.cloudApiPhoneNumberId
@@ -84,6 +95,8 @@ class SettingsStore(private val context: Context) {
         val FWD_SMS = stringPreferencesKey("forward_sms_numbers")
         val FWD_WA = stringPreferencesKey("forward_whatsapp_number")
         val FWD_ONLY_PAY = booleanPreferencesKey("forward_only_payments")
+        val TRACK_CUST = booleanPreferencesKey("track_customers")
+        val CUST_PREFIX = stringPreferencesKey("customer_id_prefix")
         val WA_MODE = stringPreferencesKey("whatsapp_mode")
         val WA_TOKEN = stringPreferencesKey("cloud_api_token")
         val WA_PHONE_ID = stringPreferencesKey("cloud_api_phone_id")

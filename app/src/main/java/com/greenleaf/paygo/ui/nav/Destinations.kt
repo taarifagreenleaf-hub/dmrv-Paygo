@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
     data object Dashboard : Dest("dashboard", "Home", Icons.Filled.Dashboard)
     data object Transactions : Dest("transactions", "Payments", Icons.Filled.Payments)
-    data object Groups : Dest("groups", "Contacts", Icons.Filled.Groups)
+    data object Groups : Dest("groups", "Customers", Icons.Filled.Groups)
     data object Training : Dest("training", "Training", Icons.Filled.School)
     data object Settings : Dest("settings", "Settings", Icons.Filled.Settings)
 

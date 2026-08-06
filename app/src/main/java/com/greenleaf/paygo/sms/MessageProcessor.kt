@@ -1,6 +1,7 @@
 package com.greenleaf.paygo.sms
 
 import com.greenleaf.paygo.data.db.entity.ContactGroupEntity
+import com.greenleaf.paygo.data.db.entity.CustomerEntity
 import com.greenleaf.paygo.data.db.entity.EventLogEntity
 import com.greenleaf.paygo.data.db.entity.MessageCategory
 import com.greenleaf.paygo.data.db.entity.MessageEntity
@@ -13,6 +14,7 @@ import com.greenleaf.paygo.data.repo.PaygoRepository
 import com.greenleaf.paygo.parser.InfoExtractor
 import com.greenleaf.paygo.parser.ParseResult
 import com.greenleaf.paygo.parser.PaymentParser
+import com.greenleaf.paygo.util.CustomerId
 import com.greenleaf.paygo.util.GroupKey
 import com.greenleaf.paygo.util.TemplateEngine
 import com.greenleaf.paygo.whatsapp.WhatsAppSender
@@ -48,10 +50,12 @@ class MessageProcessor(
         }
 
         // For free-form (non-payment) messages, pull out key customer info.
-        val extractedInfo = if (parse?.isPayment == true) null else {
-            val info = infoExtractor.extract(body, repo.enabledInfoRules())
-            if (info.isEmpty()) null else JSONObject(info as Map<*, *>).toString()
-        }
+        val infoMap = if (parse?.isPayment == true) emptyMap() else
+            infoExtractor.extract(body, repo.enabledInfoRules())
+        val extractedInfo = if (infoMap.isEmpty()) null else JSONObject(infoMap as Map<*, *>).toString()
+
+        // Resolve the customer this message belongs to.
+        val customer = resolveCustomer(parse, address, body, infoMap, settings, timestamp)
 
         val message = MessageEntity(
             address = address,
@@ -61,7 +65,8 @@ class MessageProcessor(
             category = category.name,
             provider = parse?.provider,
             groupKey = groupKey,
-            extractedInfo = extractedInfo
+            extractedInfo = extractedInfo,
+            customerId = customer?.custId
         )
         val messageId = repo.insertMessage(message)
         val stored = message.copy(id = messageId)
@@ -75,6 +80,7 @@ class MessageProcessor(
                 amount = parse.amount!!,
                 counterpartyName = parse.counterpartyName,
                 counterpartyNumber = parse.counterpartyNumber,
+                customerId = customer?.custId,
                 reference = parse.reference,
                 balanceAfter = parse.balanceAfter,
                 timestamp = timestamp,
@@ -83,11 +89,85 @@ class MessageProcessor(
             repo.insertTransaction(transaction)
         }
 
+        // Keep the customer record up to date (totals from payments, details from replies).
+        if (customer != null) {
+            updateCustomer(customer, parse, infoMap, timestamp)
+        }
+
         updateGroup(groupKey, stored, transaction)
 
         if (settings.masterEnabled) {
             if (settings.autoReplyEnabled) autoReply(stored, transaction, settings)
             if (settings.forwardEnabled) forward(stored, transaction, settings)
+        }
+    }
+
+    /**
+     * Decides which customer a message belongs to:
+     *  - a payment creates (or reuses) a customer keyed by the payer's number;
+     *  - a normal message is linked either by an sms-cust-id it quotes, or by the
+     *    sender's number matching a known customer.
+     */
+    private suspend fun resolveCustomer(
+        parse: ParseResult?,
+        address: String,
+        body: String,
+        info: Map<String, String>,
+        settings: PaygoSettings,
+        now: Long
+    ): CustomerEntity? {
+        if (!settings.trackCustomers) return null
+
+        if (parse?.isPayment == true) {
+            return repo.findOrCreateCustomer(
+                number = parse.counterpartyNumber,
+                prefix = settings.customerIdPrefix,
+                name = parse.counterpartyName,
+                now = now
+            )
+        }
+
+        // Normal message: prefer an id the customer quoted, then their number.
+        CustomerId.detectSeq(body, settings.customerIdPrefix)?.let { seq ->
+            repo.getCustomerBySeq(seq)?.let { return it }
+        }
+        val fromNumber = normalizeNumber(address) ?: info["phone"]?.let { normalizeNumber(it) }
+        if (fromNumber != null) {
+            repo.allCustomers().firstOrNull { it.phoneNumber == fromNumber }?.let { return it }
+        }
+        return null
+    }
+
+    /** Merges payment totals and reply-supplied details into the customer record. */
+    private suspend fun updateCustomer(
+        customer: CustomerEntity,
+        parse: ParseResult?,
+        info: Map<String, String>,
+        now: Long
+    ) {
+        val isPayment = parse?.isPayment == true
+        val updated = customer.copy(
+            name = customer.name ?: parse?.counterpartyName?.ifBlank { null } ?: info["name"],
+            location = info["location"] ?: customer.location,
+            productType = info["product_type"] ?: info["system_size"] ?: customer.productType,
+            phoneNumber = customer.phoneNumber ?: parse?.counterpartyNumber,
+            totalPaid = customer.totalPaid + if (isPayment) (parse?.amount ?: 0.0) else 0.0,
+            lastAmount = if (isPayment) parse?.amount else customer.lastAmount,
+            paymentCount = customer.paymentCount + if (isPayment) 1 else 0,
+            updatedAt = now
+        )
+        repo.updateCustomer(updated)
+    }
+
+    private fun normalizeNumber(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val digits = raw.filter { it.isDigit() || it == '+' }
+        if (digits.length < 9) return null
+        return when {
+            digits.startsWith("+") -> digits
+            digits.startsWith("255") -> "+$digits"
+            digits.startsWith("0") && digits.length == 10 -> "+255${digits.substring(1)}"
+            else -> digits
         }
     }
 

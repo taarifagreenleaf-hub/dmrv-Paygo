@@ -41,6 +41,10 @@ data class MessageEntity(
      *  (e.g. {"name":"Asha","location":"Mbeya","amount":"50000","system_size":"200W"}). */
     val extractedInfo: String? = null,
 
+    /** The sms-cust-id this message is linked to, if any (from payment or a reply
+     *  that quoted the id). */
+    val customerId: String? = null,
+
     /** True once a response rule has processed this message. */
     val handled: Boolean = false,
     val repliedSms: Boolean = false,

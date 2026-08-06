@@ -183,6 +183,13 @@ object DefaultRules {
             regex = "(?i)(?:mahali|eneo|location|kata|kijiji|mtaa|nipo|niko|from)\\s*[:\\-]?\\s*([A-Za-z][A-Za-z' ]{2,40})"
         ),
         InfoRuleEntity(
+            name = "Product type",
+            fieldKey = "product_type",
+            isBuiltIn = true,
+            priority = 85,
+            regex = "(?i)(?:aina(?:\\s+ya\\s+bidhaa)?|bidhaa|product|mfumo)\\s*[:\\-]?\\s*([A-Za-z0-9][A-Za-z0-9' ]{1,40})"
+        ),
+        InfoRuleEntity(
             name = "Amount",
             fieldKey = "amount",
             isBuiltIn = true,
@@ -212,8 +219,10 @@ object DefaultRules {
             priority = 100,
             replyViaSms = true,
             replyViaWhatsApp = true,
-            template = "Asante {name}! Tumepokea malipo ya {currency} {amount} " +
-                "kupitia {provider}. Kumbukumbu: {reference}. Karibu tena."
+            template = "Asante {name}! Tumepokea {currency} {amount} kupitia {provider}. " +
+                "Namba yako ya mteja (Customer ID) ni {custid}. Tafadhali jibu ujumbe huu " +
+                "ukiandika {custid}, jina lako, eneo/mahali, na aina ya bidhaa (product). " +
+                "Kumbukumbu: {reference}."
         ),
         ResponseRuleEntity(
             name = "Auto-ack normal message",

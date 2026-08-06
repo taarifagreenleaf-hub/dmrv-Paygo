@@ -25,6 +25,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE groupKey = :groupKey ORDER BY timestamp DESC")
     fun observeByGroup(groupKey: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE customerId = :customerId ORDER BY timestamp DESC")
+    fun observeByCustomer(customerId: String): Flow<List<MessageEntity>>
+
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Long): MessageEntity?
 

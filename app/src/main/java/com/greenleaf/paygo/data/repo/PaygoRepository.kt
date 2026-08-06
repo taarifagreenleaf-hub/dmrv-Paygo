@@ -2,6 +2,7 @@ package com.greenleaf.paygo.data.repo
 
 import com.greenleaf.paygo.data.db.PaygoDatabase
 import com.greenleaf.paygo.data.db.entity.ContactGroupEntity
+import com.greenleaf.paygo.data.db.entity.CustomerEntity
 import com.greenleaf.paygo.data.db.entity.EventLogEntity
 import com.greenleaf.paygo.data.db.entity.InfoRuleEntity
 import com.greenleaf.paygo.data.db.entity.MessageCategory
@@ -10,6 +11,7 @@ import com.greenleaf.paygo.data.db.entity.ParsingRuleEntity
 import com.greenleaf.paygo.data.db.entity.ResponseRuleEntity
 import com.greenleaf.paygo.data.db.entity.TransactionEntity
 import com.greenleaf.paygo.parser.DefaultRules
+import com.greenleaf.paygo.util.CustomerId
 import kotlinx.coroutines.flow.Flow
 
 /** Single access point for all persistence. */
@@ -21,6 +23,8 @@ class PaygoRepository(private val db: PaygoDatabase) {
         db.messageDao().observeByCategory(category.name)
     fun observeMessagesByGroup(groupKey: String): Flow<List<MessageEntity>> =
         db.messageDao().observeByGroup(groupKey)
+    fun observeMessagesByCustomer(customerId: String): Flow<List<MessageEntity>> =
+        db.messageDao().observeByCustomer(customerId)
     fun observeMessageCount(): Flow<Int> = db.messageDao().observeCount()
     suspend fun insertMessage(m: MessageEntity): Long = db.messageDao().insert(m)
     suspend fun updateMessage(m: MessageEntity) = db.messageDao().update(m)
@@ -49,6 +53,35 @@ class PaygoRepository(private val db: PaygoDatabase) {
     suspend fun enabledInfoRules() = db.infoRuleDao().getEnabled()
     suspend fun upsertInfoRule(rule: InfoRuleEntity) = db.infoRuleDao().upsert(rule)
     suspend fun deleteInfoRule(rule: InfoRuleEntity) = db.infoRuleDao().delete(rule)
+
+    // Customers --------------------------------------------------------------
+    fun observeCustomers(): Flow<List<CustomerEntity>> = db.customerDao().observeAll()
+    fun observeCustomerCount(): Flow<Int> = db.customerDao().observeCount()
+    suspend fun getCustomerById(id: String) = db.customerDao().getById(id)
+    suspend fun getCustomerBySeq(seq: Int) = db.customerDao().getBySeq(seq)
+    suspend fun updateCustomer(c: CustomerEntity) = db.customerDao().update(c)
+    suspend fun allCustomers() = db.customerDao().getAllOnce()
+
+    /**
+     * Returns the existing customer for [number], or creates a new one with the
+     * next sequential sms-cust-id. Idempotent per phone number so repeat payments
+     * keep the same id.
+     */
+    suspend fun findOrCreateCustomer(number: String?, prefix: String, name: String?, now: Long): CustomerEntity? {
+        if (number.isNullOrBlank()) return null
+        db.customerDao().getByPhone(number)?.let { return it }
+        val nextSeq = db.customerDao().maxSeq() + 1
+        val customer = CustomerEntity(
+            custId = CustomerId.format(prefix, nextSeq),
+            seq = nextSeq,
+            phoneNumber = number,
+            name = name?.ifBlank { null },
+            createdAt = now,
+            updatedAt = now
+        )
+        db.customerDao().upsert(customer)
+        return customer
+    }
 
     // Contact groups ---------------------------------------------------------
     fun observeGroups(): Flow<List<ContactGroupEntity>> = db.contactGroupDao().observeAll()

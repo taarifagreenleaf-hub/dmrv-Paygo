@@ -19,3 +19,11 @@ class GroupsViewModel : ViewModel() {
 
     fun messagesFor(groupKey: String) = repo.observeMessagesByGroup(groupKey)
 }
+
+class CustomersViewModel : ViewModel() {
+    private val repo = ServiceLocator.repository
+    val customers = repo.observeCustomers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun messagesFor(custId: String) = repo.observeMessagesByCustomer(custId)
+}

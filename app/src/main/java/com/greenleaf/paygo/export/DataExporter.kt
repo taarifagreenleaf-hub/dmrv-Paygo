@@ -1,6 +1,7 @@
 package com.greenleaf.paygo.export
 
 import android.content.Context
+import com.greenleaf.paygo.data.db.entity.CustomerEntity
 import com.greenleaf.paygo.data.db.entity.MessageEntity
 import com.greenleaf.paygo.data.db.entity.TransactionEntity
 import com.greenleaf.paygo.data.repo.PaygoRepository
@@ -72,12 +73,34 @@ class DataExporter(private val context: Context, private val repo: PaygoReposito
         return write("messages-$stamp.csv", sb.toString())
     }
 
+    suspend fun exportCustomersCsv(): File {
+        val rows = repo.allCustomers()
+        val sb = StringBuilder()
+        sb.appendLine("custId,name,phone,location,productType,totalPaid,paymentCount,lastAmount")
+        for (c in rows) {
+            sb.appendLine(
+                listOf(
+                    csv(c.custId),
+                    csv(c.name),
+                    csv(c.phoneNumber),
+                    csv(c.location),
+                    csv(c.productType),
+                    c.totalPaid,
+                    c.paymentCount,
+                    c.lastAmount ?: ""
+                ).joinToString(",")
+            )
+        }
+        return write("customers-$stamp.csv", sb.toString())
+    }
+
     suspend fun exportBackupJson(): File {
         val root = JSONObject()
         root.put("exportedAt", System.currentTimeMillis())
         root.put("version", 1)
         root.put("messages", JSONArray(repo.allMessages().map { it.toJson() }))
         root.put("transactions", JSONArray(repo.allTransactions().map { it.toJson() }))
+        root.put("customers", JSONArray(repo.allCustomers().map { it.toJson() }))
         return write("paygo-backup-$stamp.json", root.toString(2))
     }
 
@@ -103,6 +126,13 @@ class DataExporter(private val context: Context, private val repo: PaygoReposito
         put("id", id); put("messageId", messageId); put("provider", provider)
         put("direction", direction); put("amount", amount); put("currency", currency)
         put("name", counterpartyName); put("number", counterpartyNumber)
+        put("customerId", customerId)
         put("reference", reference); put("balanceAfter", balanceAfter); put("timestamp", timestamp)
+    }
+
+    private fun CustomerEntity.toJson() = JSONObject().apply {
+        put("custId", custId); put("name", name); put("phone", phoneNumber)
+        put("location", location); put("productType", productType)
+        put("totalPaid", totalPaid); put("paymentCount", paymentCount); put("lastAmount", lastAmount)
     }
 }

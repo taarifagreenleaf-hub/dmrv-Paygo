@@ -32,6 +32,9 @@ data class TransactionEntity(
     /** Phone number of the payer/payee, normalised where possible. */
     val counterpartyNumber: String? = null,
 
+    /** The sms-cust-id assigned to this payer, if customer tracking is enabled. */
+    val customerId: String? = null,
+
     /** Provider transaction/reference id. */
     val reference: String? = null,
 

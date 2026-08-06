@@ -58,6 +58,21 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
             }
         }
 
+        SectionCard("Customer tracking") {
+            SettingSwitch("Assign sms-cust-id to payers", settings.trackCustomers) {
+                vm.update { s -> s.copy(trackCustomers = it) }
+            }
+            LabeledField("Customer ID prefix", settings.customerIdPrefix) {
+                vm.update { s -> s.copy(customerIdPrefix = it) }
+            }
+            Text(
+                "Each payer gets an id like ${settings.customerIdPrefix.uppercase()}-0001. " +
+                    "Include {custid} in your payment reply and ask customers to quote it; " +
+                    "replies that mention it are linked back to the customer.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
         SectionCard("WhatsApp delivery") {
             Text("How replies/forwards are sent to WhatsApp:", style = MaterialTheme.typography.bodySmall)
             Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,6 +112,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
         SectionCard("Export & download") {
             Text("Save your data as a file you can share or download.", style = MaterialTheme.typography.bodySmall)
             ExportButton("Payments (CSV)") { vm.export(ExportType.TRANSACTIONS_CSV) { f -> share(context, f) } }
+            ExportButton("Customers (CSV)") { vm.export(ExportType.CUSTOMERS_CSV) { f -> share(context, f) } }
             ExportButton("Messages (CSV)") { vm.export(ExportType.MESSAGES_CSV) { f -> share(context, f) } }
             ExportButton("Full backup (JSON)") { vm.export(ExportType.BACKUP_JSON) { f -> share(context, f) } }
         }
