@@ -144,7 +144,7 @@ object DefaultRules {
             triggerType = ResponseTrigger.PAYMENT.name,
             priority = 100,
             replyViaSms = true,
-            replyViaWhatsApp = false,
+            replyViaWhatsApp = true,
             template = "Asante {name}! Tumepokea malipo ya {currency} {amount} " +
                 "kupitia {provider}. Kumbukumbu: {reference}. Karibu tena."
         ),

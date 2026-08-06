@@ -59,18 +59,29 @@ SmsReceiver ──▶ SmsProcessingService ──▶ MessageProcessor
 - **Background:** a short-lived foreground service processes each message.
 - **DI:** a small manual `ServiceLocator`.
 
-## WhatsApp delivery — three modes (Settings ▸ WhatsApp delivery)
+## Hands-free auto-reply (default)
 
-WhatsApp does not offer an open on-device "send message" API, so pick the mode
-that fits your setup:
+Everything is sent automatically on-device — no manual taps:
 
-1. **INTENT** – opens WhatsApp with the message pre-filled; you tap send.
-2. **ACCESSIBILITY** – the bundled accessibility service taps *send* for you.
-   Enable **"Paygo WhatsApp Auto-Reply"** under *Android Settings ▸
-   Accessibility*. Fully hands-free on-device.
-3. **CLOUD_API** – the official **Meta WhatsApp Cloud API** (needs a Business
-   phone-number id + token). The most reliable and Terms-of-Service-compliant
-   path; recommended if you run a business line.
+- **Normal SMS** is sent straight through the mobile operator with
+  `SmsManager` (`SmsSender`). This is natively automatic; nothing extra to set up.
+- **WhatsApp** uses the bundled **accessibility service** (the default mode):
+  Paygo opens the pre-filled chat and taps *send* for you.
+
+To turn on WhatsApp auto-send, open **Settings ▸ WhatsApp delivery** and tap
+**Enable** — that jumps to *Android Settings ▸ Accessibility*, where you switch
+on **"Paygo WhatsApp Auto-Reply"**. The Settings screen then shows a live
+**Auto-send service: ON/OFF** status. The default payment reply goes out over
+**both SMS and WhatsApp**.
+
+### Other WhatsApp delivery modes (Settings ▸ WhatsApp delivery)
+
+WhatsApp has no open on-device "send message" API, so two alternatives exist:
+
+- **INTENT** – opens WhatsApp with the message pre-filled; you tap send (no
+  accessibility service needed).
+- **CLOUD_API** – the official **Meta WhatsApp Cloud API** (needs a Business
+  phone-number id + token). The most robust path for fully unattended operation.
 
 ## Build & run
 

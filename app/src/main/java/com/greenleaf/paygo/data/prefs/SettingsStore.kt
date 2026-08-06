@@ -22,8 +22,10 @@ data class PaygoSettings(
     val forwardWhatsAppNumber: String = "",
     val forwardOnlyPayments: Boolean = true,
 
-    /** How WhatsApp messages are delivered: INTENT, ACCESSIBILITY or CLOUD_API. */
-    val whatsAppMode: String = WhatsAppMode.INTENT.name,
+    /** How WhatsApp messages are delivered: INTENT, ACCESSIBILITY or CLOUD_API.
+     *  Defaults to ACCESSIBILITY so WhatsApp is hands-free on-device (SMS is
+     *  already sent automatically through the mobile operator). */
+    val whatsAppMode: String = WhatsAppMode.ACCESSIBILITY.name,
     val cloudApiToken: String = "",
     val cloudApiPhoneNumberId: String = ""
 ) {
@@ -43,7 +45,7 @@ class SettingsStore(private val context: Context) {
             forwardSmsNumbers = p[FWD_SMS] ?: "",
             forwardWhatsAppNumber = p[FWD_WA] ?: "",
             forwardOnlyPayments = p[FWD_ONLY_PAY] ?: true,
-            whatsAppMode = p[WA_MODE] ?: WhatsAppMode.INTENT.name,
+            whatsAppMode = p[WA_MODE] ?: WhatsAppMode.ACCESSIBILITY.name,
             cloudApiToken = p[WA_TOKEN] ?: "",
             cloudApiPhoneNumberId = p[WA_PHONE_ID] ?: ""
         )
@@ -58,7 +60,7 @@ class SettingsStore(private val context: Context) {
                 forwardSmsNumbers = p[FWD_SMS] ?: "",
                 forwardWhatsAppNumber = p[FWD_WA] ?: "",
                 forwardOnlyPayments = p[FWD_ONLY_PAY] ?: true,
-                whatsAppMode = p[WA_MODE] ?: WhatsAppMode.INTENT.name,
+                whatsAppMode = p[WA_MODE] ?: WhatsAppMode.ACCESSIBILITY.name,
                 cloudApiToken = p[WA_TOKEN] ?: "",
                 cloudApiPhoneNumberId = p[WA_PHONE_ID] ?: ""
             )
