@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "transactions",
-    indices = [Index("messageId", unique = true), Index("provider"), Index("timestamp"), Index("senderNumber")]
+    indices = [Index("messageId", unique = true), Index("provider"), Index("timestamp"), Index("counterpartyNumber")]
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
