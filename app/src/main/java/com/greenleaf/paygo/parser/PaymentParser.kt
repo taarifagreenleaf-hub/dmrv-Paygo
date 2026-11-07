@@ -46,6 +46,38 @@ class PaymentParser {
         return null
     }
 
+    /**
+     * Best-effort extraction for a message we already know is a payment (its
+     * sender is a known money/bank ID) but which no structured rule matched —
+     * e.g. the operator tweaked its wording. We pull whatever we can (amount,
+     * payer name/number) using generic patterns so the payment is still recorded
+     * and forwarded. [amount] may come back null; the caller forwards it anyway.
+     */
+    fun looseParse(body: String, provider: String?): ParseResult {
+        val amount = AmountParser.parse(
+            extract(body, "(?i)(?:Tsh|TZS|TSH|Tzs|TSHS|Shs?)\\.?\\s*([\\d.,]+)", 1)
+                ?: extract(body, "(\\d{1,3}(?:[.,]\\d{3})+(?:[.,]\\d{1,2})?)", 1)
+        )
+        val number = normalizeNumber(extract(body, GENERIC_PHONE, 1))
+        val name = extract(
+            body,
+            "(?i)(?:kutoka(?: kwa)?|from)\\s+([A-Za-z][A-Za-z'. ]{1,40}?)\\s*(?=\\(|;|-|\\d|$)",
+            1
+        )?.trim()?.trim('.', ',')
+        val reference = extract(body, "(?i)(?:Kumbukumbu|Ref(?:erence)?|TID|Muamala)\\s*No?\\.?:?\\s*([A-Za-z0-9]{6,20})", 1)
+        return ParseResult(
+            provider = provider ?: "unknown",
+            direction = "RECEIVED",
+            amount = amount,
+            counterpartyName = name?.ifBlank { null },
+            counterpartyNumber = number,
+            reference = reference?.ifBlank { null },
+            balanceAfter = null,
+            matchedRuleId = -1L,
+            matchedRuleName = "Auto (financial sender)"
+        )
+    }
+
     private fun extract(text: String, pattern: String?, group: Int): String? {
         if (pattern.isNullOrBlank()) return null
         val regex = safeRegex(pattern) ?: return null
@@ -74,6 +106,10 @@ class PaymentParser {
             digits.startsWith("0") && digits.length == 10 -> "+255${digits.substring(1)}"
             else -> digits
         }
+    }
+
+    private companion object {
+        const val GENERIC_PHONE = "(\\+?255\\d{9}|0\\d{9})"
     }
 
     private fun safeRegex(pattern: String): Regex? = try {

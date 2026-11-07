@@ -28,6 +28,9 @@ class SmsProcessingService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val inFlight = AtomicInteger(0)
 
+    @Volatile
+    private var lastStartId = 0
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -36,6 +39,7 @@ class SmsProcessingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         if (intent == null) {
             stopIfIdle()
             return START_NOT_STICKY
@@ -54,11 +58,19 @@ class SmsProcessingService : Service() {
                 stopIfIdle()
             }
         }
-        return START_NOT_STICKY
+        // Re-deliver the last intent if the system kills us mid-processing so no
+        // incoming payment SMS is dropped.
+        return START_REDELIVER_INTENT
     }
 
+    /**
+     * Only stop once every delivered message has drained. Using the latest
+     * startId means a message that arrives while an earlier one is finishing
+     * cannot trigger a stop that cancels it — [stopSelf] with a stale id is a
+     * no-op once a newer intent has been delivered.
+     */
     private fun stopIfIdle() {
-        if (inFlight.get() <= 0) stopSelf()
+        if (inFlight.get() <= 0) stopSelf(lastStartId)
     }
 
     override fun onDestroy() {

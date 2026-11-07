@@ -26,7 +26,7 @@ provider yourself. It also reads the free-form messages customers send and
 | Capture key info from free-form customer messages | `InfoExtractor` + trainable **capture rules** (name, location, amount, system size, phone) |
 | Give each customer an **sms-cust-id** and track them | `CustomerEntity` + `CustomerId`; assigned on payment, quoted back by the customer, linked on reply |
 | Group normal messages by sender/payee | `ContactGroupEntity`, keyed by counterparty number/name |
-| Forward notifications to another number + WhatsApp | `MessageProcessor.forward()` using the settings targets |
+| Forward **100%** of payment SMS from every provider | `PaymentSenders` recognises each operator's sender ID, so a payment is forwarded even if the detailed regex drifts; `MessageProcessor.forward()` sends to the settings targets |
 | Database for all information | Room (`PaygoDatabase`): messages, transactions, groups, rules, event log |
 | Send & download the data | `DataExporter` → CSV / JSON shared via `FileProvider` |
 
@@ -122,6 +122,25 @@ Real SMS wording changes over time. If a message isn't parsed:
 3. Add a brand-new provider with the **+ Read rule** button.
 
 Amounts are normalised for `Tsh`/`TZS`, thousands separators and decimals.
+
+### Never miss a payment
+
+Forwarding does **not** depend on the regexes being perfect. Detection has two
+layers:
+
+1. **Structured parse** – a read rule matches and the exact amount, payer name
+   and number are extracted → a transaction is recorded.
+2. **Sender-ID safety net** (`PaymentSenders`) – if no rule fully matches but the
+   SMS comes from a known money/bank sender ID (M-PESA, MIXX/YAS/TIGO, AIRTEL,
+   HALOPESA, T-PESA/TTCL, SELCOM, CRDB, NMB, NBC, …) **and** the text carries a
+   money amount or a received/credited keyword, it is still treated as a payment,
+   given a best-effort parse, and **forwarded**. The forwarded message is tagged
+   `(unparsed)` so you can refine the rule later without ever losing the payment.
+
+This means every real payment notification from every supported provider is
+forwarded, even when an operator quietly changes its message format. Ordinary
+customer SMS (sent from a normal `+255…` number) are never mistaken for
+payments.
 
 ## Customer IDs (sms-cust-id)
 

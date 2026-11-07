@@ -14,6 +14,7 @@ import com.greenleaf.paygo.data.repo.PaygoRepository
 import com.greenleaf.paygo.parser.InfoExtractor
 import com.greenleaf.paygo.parser.ParseResult
 import com.greenleaf.paygo.parser.PaymentParser
+import com.greenleaf.paygo.parser.PaymentSenders
 import com.greenleaf.paygo.util.CustomerId
 import com.greenleaf.paygo.util.GroupKey
 import com.greenleaf.paygo.util.InfoJson
@@ -40,17 +41,35 @@ class MessageProcessor(
     suspend fun process(address: String, body: String, timestamp: Long, simId: Int) {
         val settings = settingsStore.settings.first()
         val rules = repo.enabledParsingRules()
-        val parse: ParseResult? = parser.parse(address, body, rules)
+        val structured: ParseResult? = parser.parse(address, body, rules)
 
-        val category = if (parse?.isPayment == true) MessageCategory.PAYMENT else MessageCategory.NORMAL
-        val groupKey = if (parse?.isPayment == true) {
-            GroupKey.forCounterparty(parse.counterpartyNumber, parse.counterpartyName, address)
+        // A message is a payment if EITHER a structured rule extracted an amount,
+        // OR it comes from a known money/bank sender id and looks like a money
+        // event. The second path guarantees that payment SMS from every provider
+        // are captured and forwarded even when the operator's wording drifts and
+        // the structured rule fails to match.
+        val senderProvider = PaymentSenders.detect(address)
+        val isPaymentSms = structured?.isPayment == true || PaymentSenders.isPaymentSms(address, body)
+
+        // When the sender is financial but the structured rule missed, do a
+        // best-effort parse so we still record whatever details we can.
+        val parse: ParseResult? = when {
+            structured?.isPayment == true -> structured
+            isPaymentSms -> parser.looseParse(body, senderProvider ?: structured?.provider)
+            else -> null
+        }
+
+        val hasTransaction = parse?.amount != null
+        val category = if (isPaymentSms) MessageCategory.PAYMENT else MessageCategory.NORMAL
+        val groupKey = if (isPaymentSms) {
+            GroupKey.forCounterparty(parse?.counterpartyNumber, parse?.counterpartyName, address)
         } else {
             GroupKey.forSender(address)
         }
+        val provider = parse?.provider ?: senderProvider
 
         // For free-form (non-payment) messages, pull out key customer info.
-        val infoMap = if (parse?.isPayment == true) emptyMap() else
+        val infoMap = if (isPaymentSms) emptyMap() else
             infoExtractor.extract(body, repo.enabledInfoRules())
         val extractedInfo = InfoJson.encode(infoMap)
 
@@ -63,7 +82,7 @@ class MessageProcessor(
             timestamp = timestamp,
             simSubscriptionId = simId,
             category = category.name,
-            provider = parse?.provider,
+            provider = provider,
             groupKey = groupKey,
             extractedInfo = extractedInfo,
             customerId = customer?.custId
@@ -72,10 +91,10 @@ class MessageProcessor(
         val stored = message.copy(id = messageId)
 
         var transaction: TransactionEntity? = null
-        if (parse?.isPayment == true) {
+        if (hasTransaction && parse != null) {
             transaction = TransactionEntity(
                 messageId = messageId,
-                provider = parse.provider,
+                provider = provider ?: parse.provider,
                 direction = parse.direction,
                 amount = parse.amount!!,
                 counterpartyName = parse.counterpartyName,
@@ -97,8 +116,13 @@ class MessageProcessor(
         updateGroup(groupKey, stored, transaction)
 
         if (settings.masterEnabled) {
-            if (settings.autoReplyEnabled) autoReply(stored, transaction, settings)
-            if (settings.forwardEnabled) forward(stored, transaction, settings)
+            // Auto-reply to real parsed payments (with the customer id) and to
+            // free-form customer messages — but not to payment-domain SMS we
+            // couldn't fully parse, to avoid replying with half-filled templates.
+            if (settings.autoReplyEnabled && (transaction != null || !isPaymentSms)) {
+                autoReply(stored, transaction, settings)
+            }
+            if (settings.forwardEnabled) forward(stored, transaction, settings, isPaymentSms, provider)
         }
     }
 
@@ -230,9 +254,17 @@ class MessageProcessor(
         }
     }
 
-    private suspend fun forward(message: MessageEntity, txn: TransactionEntity?, settings: PaygoSettings) {
-        if (settings.forwardOnlyPayments && txn == null) return
-        val header = buildForwardHeader(message, txn)
+    private suspend fun forward(
+        message: MessageEntity,
+        txn: TransactionEntity?,
+        settings: PaygoSettings,
+        isPaymentSms: Boolean,
+        provider: String?
+    ) {
+        // Forward 100% of payment SMS (from any provider) when "only payments" is
+        // on — including ones we recognised by sender id but couldn't fully parse.
+        if (settings.forwardOnlyPayments && !isPaymentSms) return
+        val header = buildForwardHeader(message, txn, isPaymentSms, provider)
         val fullText = "$header\n${message.body}"
 
         var forwardedAny = false
@@ -250,14 +282,23 @@ class MessageProcessor(
         if (forwardedAny) repo.updateMessage(message.copy(forwarded = true))
     }
 
-    private fun buildForwardHeader(message: MessageEntity, txn: TransactionEntity?): String =
-        if (txn != null) {
+    private fun buildForwardHeader(
+        message: MessageEntity,
+        txn: TransactionEntity?,
+        isPaymentSms: Boolean,
+        provider: String?
+    ): String = when {
+        txn != null ->
             "[Paygo] Payment ${txn.currency} ${TemplateEngine.formatAmount(txn.amount)} " +
                 "via ${txn.provider} from ${txn.counterpartyName ?: "?"} " +
                 "(${txn.counterpartyNumber ?: message.address})"
-        } else {
+        // Known payment SMS we couldn't fully parse — forward it anyway so no
+        // payment is ever missed; it can be reviewed/retrained in the app.
+        isPaymentSms ->
+            "[Paygo] Payment SMS${provider?.let { " via $it" } ?: ""} from ${message.address} (unparsed)"
+        else ->
             "[Paygo] Message from ${message.address}"
-        }
+    }
 
     private fun isSendableNumber(value: String): Boolean {
         val digits = value.filter { it.isDigit() }
